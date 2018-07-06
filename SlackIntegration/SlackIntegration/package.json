@@ -1,0 +1,16 @@
+{
+  "name": "slack-integration",
+  "version": "0.0.0",
+  "description": "SlackIntegration",
+  "main": "app.js",
+  "author": {
+    "name": "xinpa"
+  },
+  "dependencies": {
+    "@slack/client": "^4.3.1",
+    "body-parser": "^1.18.3",
+    "express": "^4.16.3",
+    "redis": "^2.8.0",
+    "request": "^2.87.0"
+  }
+}
