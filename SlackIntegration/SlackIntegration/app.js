@@ -18,12 +18,12 @@ redis_client.on("error", function (err) {
 var clientId = '216246239079.343210212259';
 var clientSecret = '23fbc99788a1868d52f216db09e16243';
 
-var token = 'xoxp-216246239079-214612888065-393239089968-4996faa3a1fa45b65f9185512f69b110';
+var token = 'xoxp-216246239079-214612888065-393305245248-03624d747f09833f2b6e41d26481ebd9';
 const web = new WebClient(token);
 // Instantiates Express and assigns our app variable to it
 var app = express();
 
-const WEB_HOST = 'http://4bb56f6d.ngrok.io';
+const WEB_HOST = 'http://805c0db9.ngrok.io';
 
 
 app.use(bodyParser.json());
@@ -80,7 +80,7 @@ app.get('/call', function (req, res) {
 
 // Route the endpoint that our slash command will point to and send back a simple response to indicate that ngrok is working
 app.post('/slack/receive', function (req, res) {
-    let number = req.body.text;
+    let number = '';
     if (req.body.channel_name == 'directmessage') {
         web.conversations.info({ channel: req.body.channel_id }).then((im_data) => {
             console.log('Profile: ', im_data.channel);
@@ -112,127 +112,78 @@ app.post('/slack/receive', function (req, res) {
             .catch(console.error);
     }
     else {
-        let data = {
-            "text": "Call:" + number,
-            "attachments": [
-                {
-                    "fallback": "Call" + number,
-                    "actions": [
-                        {
-                            "type": "button",
-                            "text": "Call",
-                            "url": WEB_HOST + "/call?jid=" + number
-                        }
-                    ]
-                }
-            ]
-        };
-        res.json(data);
+        redis_client.get(req.body.channel_id, function (err, reply) {
+            // reply is null when the key is missing
+            console.log(reply);
+            number = reply;
+
+            if (!number || number.length == 0) {
+                redis_client.get(req.body.user_id, function (err, reply) {
+                    number = reply;
+                    if (!number || number.length == 0) {
+                        let data = {
+                            "text": "Meeting number not found",
+                        };
+                        res.json(data);
+                        return;
+                    }
+
+                    let data = {
+                        "response_type": "in_channel",
+                        "text": "Meeting:" + number,
+                        "attachments": [
+                            {
+                                "fallback": "Join Meeting" + number,
+                                "actions": [
+                                    {
+                                        "type": "button",
+                                        "text": "Joing Meeting",
+                                        "url": WEB_HOST + "/call?jid=" + number
+                                    }
+                                ]
+                            }
+                        ]
+                    };
+                    res.json(data);
+                });
+                return;
+            }
+            
+            let data = {
+                "response_type": "in_channel",
+                "text": "Meeting:" + number,
+                "attachments": [
+                    {
+                        "fallback": "Join Meeting" + number,
+                        "actions": [
+                            {
+                                "type": "button",
+                                "text": "Joing Meeting",
+                                "url": WEB_HOST + "/call?jid=" + number
+                            }
+                        ]
+                    }
+                ]
+            };
+            res.json(data);
+        });
     }
 });
 
-app.post('/slack/callmeeting', function (req, res) {
-    let data = {
-        "response_type": "in_channel",
-        "text": "Meeting:" + req.body.text,
-        "attachments": [
-            {
-                "fallback": "Join Meeting" + req.body.text,
-                "actions": [
-                    {
-                        "type": "button",
-                        "text": "Joing Meeting",
-                        "url": WEB_HOST + "/call?jid=" + req.body.text
-                    }
-                ]
-            }
-        ]
-    };
-    res.json(data);
-});
-
-app.post('/slack/set_team_meeting_number', function (req, res) {
-    redis_client.set(req.body.team_id, req.body.text, redis.print);
-
-    let data = {
-        "text": "Meeting number set to:" + req.body.text,
-    };
-    res.json(data);
-});
-
-app.post('/slack/call_team_meeting_number', function (req, res) {
-    redis_client.get(req.body.team_id, function (err, reply) {
-        // reply is null when the key is missing
-        console.log(reply);
-
-        var number = reply;
-
-        if (!number || number.length == 0) {
-            let data = {
-                "text": "Meeting number not found",
-            };
-            res.json(data);
-            return;
-        }
-        let data = {
-            "response_type": "in_channel",
-            "text": "Meeting:" + number,
-            "attachments": [
-                {
-                    "fallback": "Join Meeting" + number,
-                    "actions": [
-                        {
-                            "type": "button",
-                            "text": "Joing Meeting",
-                            "url": WEB_HOST + "/call?jid=" + number
-                        }
-                    ]
-                }
-            ]
-        };
-        res.json(data);
-    });
-});
-
-app.post('/slack/set_channel_meeting_number', function (req, res) {
+app.post('/slack/set_meeting_number', function (req, res) {
     redis_client.set(req.body.channel_id, req.body.text, redis.print);
 
     let data = {
-        "text": "Meeting number set to:" + req.body.text,
+        "text": "Channel meeting number set to:" + req.body.text,
     };
     res.json(data);
 });
 
-app.post('/slack/call_channel_meeting_number', function (req, res) {
-    redis_client.get(req.body.channel_id, function (err, reply) {
-        // reply is null when the key is missing
-        console.log(reply);
+app.post('/slack/set_PMR_number', function (req, res) {
+    redis_client.set(req.body.user_id, req.body.text, redis.print);
 
-        var number = reply;
-
-        if (!number || number.length == 0) {
-            let data = {
-                "text": "Meeting number not found",
-            };
-            res.json(data);
-            return;
-        }
-        let data = {
-            "response_type": "in_channel",
-            "text": "Meeting:" + number,
-            "attachments": [
-                {
-                    "fallback": "Join Meeting" + number,
-                    "actions": [
-                        {
-                            "type": "button",
-                            "text": "Joing Meeting",
-                            "url": WEB_HOST + "/call?jid=" + number
-                        }
-                    ]
-                }
-            ]
-        };
-        res.json(data);
-    });
+    let data = {
+        "text": "PMR number set to:" + req.body.text,
+    };
+    res.json(data);
 });
